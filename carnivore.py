@@ -154,7 +154,7 @@ class Carnivore:
                         self.pack.append(child.__hash__())
                         child.pack_leader = self.__hash__()
 
-                    child.traits[0] = self.traits[0]
+                    #child.traits[0] = self.traits[0]
                     
                     carnivores.append(child)
                     self.hunger += 6
@@ -197,6 +197,7 @@ class Carnivore:
                         self.prey = creatures[self.prey_target]
                         self.prey_timer = time.time()
                         self.rest_timer = time.time()
+                    #print('d')
             else:
                 self.prey_target = None
                 self.prey = None
@@ -327,7 +328,7 @@ class Carnivore:
             self.x -= self.vel[0]*2
             self.y -= self.vel[1]*2
 
-carnivores = [Carnivore(secrets.choice(range(win.get_width() - 300, win.get_width() + 300)), secrets.choice(range(win.get_height() - 300, win.get_height() + 300)), secrets.randbelow(3), [[125, 0, 0], 10, 17.5, 5.5], 0) for i in range(10)]
+carnivores = [Carnivore(secrets.choice(range(win.get_width() - 300, win.get_width() + 300)), secrets.choice(range(win.get_height() - 300, win.get_height() + 300)), secrets.randbelow(3), [[125, 0, 0], 10, 17.5, 5.25], 0) for i in range(10)]
 carnivores[0].pack = [carnivore.__hash__() for carnivore in carnivores[1:]]
 for carnivore in carnivores[1:]:
     carnivore.pack_leader = carnivores[0].__hash__()

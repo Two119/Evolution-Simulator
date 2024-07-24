@@ -155,14 +155,12 @@ class Herbivore:
         dists = [math.dist((self.x, self.y), (carnivore.x, carnivore.y)) for carnivore in carnivores]
         if min(dists) <= 100 and not (carnivores[dists.index(min(dists))].vel[0] == 0 and carnivores[dists.index(min(dists))].vel[1] == 0):
             self.move_angle = -self.move_angle
-            self.x -= self.vel[0]*2
-            self.y -= self.vel[1]*2
-
+            
         self.vel = [self.speed*math.cos(math.radians(self.move_angle)), self.speed*math.sin(math.radians(self.move_angle))]
 
         self.x += self.vel[0]
         self.y += self.vel[1]
-
+        
         if self.x <= -1300 or self.y <= -1300:
             self.move_angle -= 180
 
@@ -241,8 +239,8 @@ while True:
     pygame.draw.rect(win, [125, 125, 125], pygame.Rect(0, 0, 450, 225))
     pop_text = font.render("Population: " + str(len(creatures)), False, [0, 0, 0], [125, 125, 125])
 
-    avg_speed = sum([(creature.traits[-1]) for creature in creatures])/len(creatures)
-    speed_text = font.render("Speed: " + str(round(avg_speed, 3)), False, [0, 0, 0], [125, 125, 125])
+    avg_speed = sum([(creature.traits[-1]) for creature in carnivores])/len(carnivores)
+    speed_text = font.render("Carn Speed: " + str(round(avg_speed, 3)), False, [0, 0, 0], [125, 125, 125])
     
     avg_size = sum([(creature.traits[1]) for creature in creatures])/len(creatures)
     size_text = font.render("Radius: " + str(round(avg_size, 3)), False, [0, 0, 0], [125, 125, 125])
