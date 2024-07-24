@@ -100,8 +100,8 @@ class Herbivore:
                     recombined_traits = [new_color, new_radius, new_hunger, new_speed]
                     child = Herbivore(self.x, self.y, self.type, recombined_traits, self.gen + 1)
                     creatures.append(child)
-                    self.hunger += 6
-                    creatures[self.target].hunger += 6
+                    self.hunger += 5
+                    creatures[self.target].hunger += 5
                     creatures[self.target].target = None
                     self.target = None
             else:
@@ -121,7 +121,7 @@ class Herbivore:
                 self.move_angle = angle_between([(self.x, self.y), self.plant])
                 if self.rect.collidepoint(self.plant):
                     plant_manager.plants.remove(self.plant)
-                    self.hunger -= 2
+                    self.hunger -= 4
                     self.plant_target = None
             else:
                 self.plant_target = None
@@ -152,19 +152,24 @@ class Herbivore:
         else:
             self.target = None
 
+        dists = [math.dist((self.x, self.y), (carnivore.x, carnivore.y)) for carnivore in carnivores]
+        if min(dists) <= 100 and not (carnivores[dists.index(min(dists))].vel[0] == 0 and carnivores[dists.index(min(dists))].vel[1] == 0):
+            self.move_angle = -self.move_angle
+            self.x -= self.vel[0]*2
+            self.y -= self.vel[1]*2
 
         self.vel = [self.speed*math.cos(math.radians(self.move_angle)), self.speed*math.sin(math.radians(self.move_angle))]
 
         self.x += self.vel[0]
         self.y += self.vel[1]
 
-        if self.x <= -500 or self.y <= -900:
+        if self.x <= -1300 or self.y <= -1300:
             self.move_angle -= 180
 
             self.x -= self.vel[0]*2
             self.y -= self.vel[1]*2
 
-        if self.x >= win.get_width() + 500 or self.y >= win.get_height() + 500:
+        if self.x >= win.get_width() + 1300 or self.y >= win.get_height() + 1300:
             self.move_angle -= 180
 
             self.x -= self.vel[0]*2
@@ -177,9 +182,7 @@ pygame.init()
 #traits[1] is radius
 #traits[2] is food requirement
 #traits[3] is speed
-creatures = [Herbivore(secrets.choice(range(-450, win.get_width() + 450)), secrets.choice(range(-450, win.get_height() + 450)), secrets.randbelow(3), [[0, 0, 125], 10, 17.5, 5], 0) for i in range(50)]
-
-carnivores = [Carnivore(secrets.choice(range(win.get_width() - 250, win.get_width() + 250)), secrets.choice(range(win.get_height() - 250, win.get_height() + 250)), secrets.randbelow(3), [[125, 0, 0], 10, 17.5, 5], 0) for i in range(10)]
+creatures = [Herbivore(secrets.choice(range(-1250, win.get_width() + 1250)), secrets.choice(range(-1250, win.get_height() + 1250)), secrets.randbelow(3), [[0, 0, 125], 10, 17.5, 5], 0) for i in range(75)]
 
 font = pygame.font.SysFont("Arial", 32)
 clock = pygame.Clock()
@@ -257,5 +260,11 @@ while True:
     win.blit(food_text, (10, 130))
     win.blit(gen_text, (10, 170))
     win.blit(d_text, (10, 210))
+
+    """n_packs = 0
+    for carnivore in carnivores:
+        if carnivore.pack_leader == None:
+            n_packs += 1
+    print(n_packs, ", ", len(carnivores))"""
     
     pygame.display.update()
