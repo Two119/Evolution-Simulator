@@ -1,5 +1,6 @@
 from carnivore import *
-
+sin_table = [math.sin(math.radians(i)) for i in range(360)]
+cos_table = [math.cos(math.radians(i)) for i in range(360)]
 class Herbivore:
     def __init__(self, x, y, _type_, traits, generation):
         self.x = x
@@ -122,6 +123,10 @@ class Herbivore:
                 if self.rect.collidepoint(self.plant):
                     plant_manager.plants.remove(self.plant)
                     self.hunger -= 4
+            
+                    if self.hunger <= 0:
+                        self.hunger = 1
+                        
                     self.plant_target = None
             else:
                 self.plant_target = None
@@ -153,8 +158,38 @@ class Herbivore:
             self.target = None
 
         dists = [math.dist((self.x, self.y), (carnivore.x, carnivore.y)) for carnivore in carnivores]
-        if min(dists) <= 100 and not (carnivores[dists.index(min(dists))].vel[0] == 0 and carnivores[dists.index(min(dists))].vel[1] == 0):
-            self.move_angle = -self.move_angle
+        
+        if min(dists) <= 200:
+            
+            best_average_dist = 0
+            for i in range(180):
+                check_point = [self.x + self.speed*cos_table[i]*60, self.y + self.speed*sin_table[i]*60]
+                avg_dist = 0
+                num_enemies = 0
+                for carnivore in carnivores:
+                    if math.dist((self.x, self.y), (carnivore.x, carnivore.y)) <= 200:
+                        avg_dist += math.dist(check_point, (carnivore.x, carnivore.y))
+                        num_enemies += 1
+
+                avg_dist /= num_enemies
+                if avg_dist > best_average_dist:
+                    best_average_dist = avg_dist
+                    self.move_angle = i
+                    
+            for plant in plant_manager.plants:
+                if math.dist((self.x, self.y), plant) <= 35 and (self.hunger > (self.food_requirement*2/3)):
+                    self.move_angle = angle_between([(self.x, self.y), plant])
+                    if self.rect.collidepoint(plant):
+                        
+                        plant_manager.plants.remove(plant)
+                        
+                        self.hunger -= 4
+                        if self.hunger <= 0:
+                            self.hunger = 1
+                            
+                        self.plant_target = None
+                        self.plant = None
+                        break
             
         self.vel = [self.speed*math.cos(math.radians(self.move_angle)), self.speed*math.sin(math.radians(self.move_angle))]
 
@@ -195,14 +230,14 @@ while True:
     plant_manager.update()
 
     if pygame.key.get_pressed()[pygame.K_RIGHT]:
-        cam_offset[0] -= 4
+        cam_offset[0] -= 8
     if pygame.key.get_pressed()[pygame.K_LEFT]:
-        cam_offset[0] += 4
+        cam_offset[0] += 8
 
     if pygame.key.get_pressed()[pygame.K_UP]:
-        cam_offset[1] += 4
+        cam_offset[1] += 8
     if pygame.key.get_pressed()[pygame.K_DOWN]:
-        cam_offset[1] -= 4
+        cam_offset[1] -= 8
 
     """if time.time() - overall_time >= 15:
         print("a")
@@ -239,8 +274,8 @@ while True:
     pygame.draw.rect(win, [125, 125, 125], pygame.Rect(0, 0, 450, 225))
     pop_text = font.render("Population: " + str(len(creatures)), False, [0, 0, 0], [125, 125, 125])
 
-    avg_speed = sum([(creature.traits[-1]) for creature in carnivores])/len(carnivores)
-    speed_text = font.render("Carn Speed: " + str(round(avg_speed, 3)), False, [0, 0, 0], [125, 125, 125])
+    avg_speed = sum([(creature.traits[-1]) for creature in creatures])/len(creatures)
+    speed_text = font.render("Speed: " + str(round(avg_speed, 3)), False, [0, 0, 0], [125, 125, 125])
     
     avg_size = sum([(creature.traits[1]) for creature in creatures])/len(creatures)
     size_text = font.render("Radius: " + str(round(avg_size, 3)), False, [0, 0, 0], [125, 125, 125])
