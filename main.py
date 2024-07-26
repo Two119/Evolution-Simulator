@@ -30,6 +30,9 @@ class Herbivore:
         
         self.gen = generation
         
+        self.calculation_timer = time.time()
+        self.run_angle = 0
+        
     def new(self):
         if self.target == None:
             dists = [[], []]
@@ -162,20 +165,31 @@ class Herbivore:
         if min(dists) <= 200:
             
             best_average_dist = 0
-            for i in range(180):
-                check_point = [self.x + self.speed*cos_table[i]*60, self.y + self.speed*sin_table[i]*60]
-                avg_dist = 0
-                num_enemies = 0
-                for carnivore in carnivores:
-                    if math.dist((self.x, self.y), (carnivore.x, carnivore.y)) <= 200:
-                        avg_dist += math.dist(check_point, (carnivore.x, carnivore.y))
-                        num_enemies += 1
+            if (time.time() - self.calculation_timer) >= 0.25:
+                for i in range(360):
+                    check_point = [self.x + self.speed*cos_table[i]*15, self.y + self.speed*sin_table[i]*15]
+                    avg_dist = 0
+                    if check_point[0] <= - 1300 or check_point[0] >= win.get_width() + 1300:
+                        avg_dist = -1000000
+                        
+                    if check_point[1] <= - 1300 or check_point[1] >= win.get_height() + 1300:
+                        avg_dist = -1000000    
+                                            
+                    num_enemies = 0
+                    for carnivore in carnivores:
+                        if math.dist((self.x, self.y), (carnivore.x, carnivore.y)) <= 200:
+                            avg_dist += math.dist(check_point, (carnivore.x, carnivore.y))
+                            num_enemies += 1
 
-                avg_dist /= num_enemies
-                if avg_dist > best_average_dist:
-                    best_average_dist = avg_dist
-                    self.move_angle = i
-                    
+                    avg_dist /= num_enemies
+                    if avg_dist > best_average_dist:
+                        best_average_dist = avg_dist
+                        self.move_angle = i
+                        self.run_angle = i
+                self.calculation_timer = time.time()
+            else:
+                self.move_angle = self.run_angle
+                
             for plant in plant_manager.plants:
                 if math.dist((self.x, self.y), plant) <= 35 and (self.hunger > (self.food_requirement*2/3)):
                     self.move_angle = angle_between([(self.x, self.y), plant])
@@ -215,7 +229,7 @@ pygame.init()
 #traits[1] is radius
 #traits[2] is food requirement
 #traits[3] is speed
-creatures = [Herbivore(secrets.choice(range(-1250, win.get_width() + 1250)), secrets.choice(range(-1250, win.get_height() + 1250)), secrets.randbelow(3), [[0, 0, 125], 10, 17.5, 5], 0) for i in range(75)]
+creatures = [Herbivore(secrets.choice(range(-1250, win.get_width() + 1250)), secrets.choice(range(-1250, win.get_height() + 1250)), secrets.randbelow(3), [[0, 0, 125], 10, 15, 5], 0) for i in range(100)]
 
 font = pygame.font.SysFont("Arial", 32)
 clock = pygame.Clock()
@@ -272,13 +286,15 @@ while True:
             #deaths += 1        
     
     pygame.draw.rect(win, [125, 125, 125], pygame.Rect(0, 0, 450, 225))
-    pop_text = font.render("Population: " + str(len(creatures)), False, [0, 0, 0], [125, 125, 125])
+    pop_text = font.render("Population: H - " + str(len(creatures)) + ", C - " + str(len(carnivores)), False, [0, 0, 0], [125, 125, 125])
 
     avg_speed = sum([(creature.traits[-1]) for creature in creatures])/len(creatures)
-    speed_text = font.render("Speed: " + str(round(avg_speed, 3)), False, [0, 0, 0], [125, 125, 125])
+    avg_c_speed = sum([(carnivore.traits[-1]) for carnivore in carnivores])/len(carnivores)
+    speed_text = font.render("Speed: H - " + str(round(avg_speed, 3)) + ", C - " + str(round(avg_c_speed, 3)), False, [0, 0, 0], [125, 125, 125])
     
     avg_size = sum([(creature.traits[1]) for creature in creatures])/len(creatures)
-    size_text = font.render("Radius: " + str(round(avg_size, 3)), False, [0, 0, 0], [125, 125, 125])
+    avg_c_size = sum([(carnivore.traits[1]) for carnivore in carnivores])/len(carnivores)
+    size_text = font.render("Radius: H - " + str(round(avg_size, 3)) + ", C - " + str(round(avg_c_size, 3)), False, [0, 0, 0], [125, 125, 125])
     
     food_req = sum([(creature.traits[-2]) for creature in creatures])/len(creatures)
     food_text = font.render("Food Req: " + str(round(food_req, 3)), False, [0, 0, 0], [125, 125, 125])
