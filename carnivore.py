@@ -20,20 +20,40 @@ num_packs = 1
 def angle_between(points):
     return math.atan2(points[1][1] - points[0][1], points[1][0] - points[0][0])*180/math.pi
 
+def scale_image(img, factor=4.0):
+    size = round(img.get_width() * factor), round(img.get_height() * factor)
+    return pygame.transform.scale(img, size).convert()
+
 win = pygame.display.set_mode([0,0], pygame.FULLSCREEN)
 
 class PlantManager:
     def __init__(self):
         self.plants = [[secrets.choice(range(-1250, win.get_width() + 1250)), secrets.choice(range(-1250, win.get_height() + 1250))] for i in range(500)]
         self.delay = time.time()
+        self.sprite = scale_image(pygame.image.load("plant.png").convert())
+        self.sprite.set_colorkey([255, 255, 255])
+        self.win_rect = pygame.Rect(0, 0, win.get_width(), win.get_height())
     def update(self):
         for plant in self.plants:
-            pygame.draw.circle(win, [0, 185, 0], [plant[0] + cam_offset[0], plant[1] + cam_offset[1]], 6)
+            if self.win_rect.collidepoint((plant[0] + cam_offset[0], plant[1] + cam_offset[1])):
+                win.blit(self.sprite, (plant[0] + cam_offset[0], plant[1] + cam_offset[1]))
 
         while len(self.plants) < 500:
             self.plants.append([secrets.choice(range(-1250, win.get_width() + 1250)), secrets.choice(range(-1250, win.get_height() + 1250))])
             
 plant_manager = PlantManager()
+
+carnivore_image = scale_image(pygame.image.load("carnivore.png").convert())
+carnivore_image.set_colorkey([255, 255, 255])
+
+carnivore_images = [pygame.transform.rotate(carnivore_image, i) for i in range(0, 361)]
+carnivore_masks = [pygame.mask.from_surface(carnivore_images[i]) for i in range(0, 361)]
+
+herbivore_image = scale_image(pygame.image.load("herbivore.png").convert(), 4)
+herbivore_image.set_colorkey([255, 255, 255])
+
+herbivore_images = [pygame.transform.rotate(herbivore_image, i) for i in range(0, 361)]
+herbivore_masks = [pygame.mask.from_surface(herbivore_images[i]) for i in range(0, 361)]
 
 class Carnivore:
     def __init__(self, x, y, _type_, traits, generation):
@@ -51,6 +71,7 @@ class Carnivore:
         self.vel = [0, 0]
         self.speed = traits[3]
         self.move_angle = secrets.choice(range(-180, 180))
+        self.r_angle = secrets.choice(range(-180, 180))
         self.move_delay = time.time()
 
         self.rect = pygame.rect.Rect(x - self.traits[1], y - self.traits[1], self.traits[1]*2, self.traits[1]*2)
@@ -101,8 +122,6 @@ class Carnivore:
                     self.target_creature = None
                     return
                 self.move_angle = angle_between([(self.x, self.y), (carnivores[self.target].x, carnivores[self.target].y)])
-
-                #pygame.draw.line(win, [255, 255, 255], (self.x + cam_offset[0], self.y + cam_offset[1]), (carnivores[self.target].x + cam_offset[0], carnivores[self.target].y + cam_offset[1]), 8)
 
                 if self.rect.colliderect(carnivores[self.target].rect):
                     new_color = secrets.choice([carnivores[self.target].traits[0], self.traits[0]])
@@ -182,7 +201,6 @@ class Carnivore:
             
         else:
             if self.prey in creatures:
-                #pygame.draw.line(win, [255, 255, 255], (self.x + cam_offset[0], self.y + cam_offset[1]), (self.prey[0] + cam_offset[0], self.prey[1] + cam_offset[1]))
                 self.prey_target = creatures.index(self.prey)
                 self.move_angle = angle_between([(self.x, self.y), (creatures[self.prey_target].x, creatures[self.prey_target].y)])
                 
@@ -191,7 +209,13 @@ class Carnivore:
                     self.prey = None
                     return
                 
-                if self.rect.colliderect(creatures[self.prey_target].rect):
+                self.r_angle = self.move_angle
+                if self.r_angle >= 360:
+                    self.r_angle = self.r_angle - 360
+                if self.r_angle < 0:
+                    self.r_angle = 360 + self.r_angle
+                    
+                if carnivore_masks[round(self.r_angle)].overlap(herbivore_masks[round(creatures[self.prey_target].move_angle)], ((creatures[self.prey_target].x - self.x), (creatures[self.prey_target].y - self.y))):
                     creatures.pop(self.prey_target)
                     deaths += 1
                     self.hunger = 1 
@@ -199,7 +223,14 @@ class Carnivore:
                     
                 for creature in creatures:
                     if math.dist((self.x, self.y), (creature.x, creature.y)) < 100:
-                        if self.rect.colliderect(creature.rect):
+                        
+                        self.r_angle = self.move_angle
+                        if self.r_angle >= 360:
+                            self.r_angle = self.r_angle - 360
+                        if self.r_angle < 0:
+                            self.r_angle = 360 + self.r_angle
+                            
+                        if carnivore_masks[round(self.r_angle)].overlap(herbivore_masks[round(creature.move_angle)], ((creature.x - self.x), (creature.y - self.y))):
                             creatures.remove(creature)
                             deaths += 1
                             self.hunger = 1 
@@ -213,11 +244,17 @@ class Carnivore:
 
     def update(self, creatures):
         global num_packs
-        pygame.draw.circle(win, self.traits[0], (self.x + cam_offset[0], self.y + cam_offset[1]), self.traits[1])
+        
+        self.r_angle = self.move_angle
+        if self.r_angle >= 360:
+            self.r_angle = self.r_angle - 360
+        if self.r_angle < 0:
+            self.r_angle = 360 + self.r_angle 
+            
+        win.blit(carnivore_images[round(self.r_angle)], (self.x + cam_offset[0], self.y + cam_offset[1]))
+        
         self.rect.x = self.x - self.traits[1]
         self.rect.y = self.y - self.traits[1]
-
-        #pygame.draw.rect(win, [255, 255, 255], self.rect)
 
         if time.time() - self.move_delay >= 0.25:
             self.move_angle += secrets.choice(range(-5, 5))
