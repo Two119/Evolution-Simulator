@@ -14,6 +14,9 @@ overall_time = time.time()
 global deaths
 deaths = 0
 
+global death_anims
+death_anims = []
+
 global num_packs
 num_packs = 1
 
@@ -24,6 +27,19 @@ def scale_image(img, factor=4.0):
     size = round(img.get_width() * factor), round(img.get_height() * factor)
     return pygame.transform.scale(img, size).convert()
 
+def rotate_towards_point(image, image_rect, target_point):
+    # Calculate the angle
+    dx, dy = target_point[0] - image_rect.centerx, target_point[1] - image_rect.centery
+    angle = math.degrees(math.atan2(-dy, dx))  # Negative dy because Pygame's y-axis is inverted
+
+    # Rotate the image
+    rotated_image = pygame.transform.rotate(image, angle)
+
+    return rotated_image
+
+def swap_color(img, col1, col2):
+    pygame.transform.threshold(img, img, col1, (10, 10, 10), col2, 1, None, True)
+
 win = pygame.display.set_mode([0,0], pygame.FULLSCREEN)
 
 class PlantManager:
@@ -32,6 +48,7 @@ class PlantManager:
         self.delay = time.time()
         self.sprite = scale_image(pygame.image.load("plant.png").convert())
         self.sprite.set_colorkey([255, 255, 255])
+        self.mask = pygame.mask.from_surface(self.sprite)
         self.win_rect = pygame.Rect(0, 0, win.get_width(), win.get_height())
     def update(self):
         for plant in self.plants:
@@ -39,17 +56,60 @@ class PlantManager:
                 win.blit(self.sprite, (plant[0] + cam_offset[0], plant[1] + cam_offset[1]))
 
         while len(self.plants) < 500:
-            self.plants.append([secrets.choice(range(-1250, win.get_width() + 1250)), secrets.choice(range(-1250, win.get_height() + 1250))])
+            pos = [secrets.choice(range(-1250, win.get_width() + 1250)), secrets.choice(range(-1250, win.get_height() + 1250))]
+            for carnivore in carnivores:
+                while math.dist((pos[0], pos[1]), (carnivore.x, carnivore.y)) <= 225:
+                    pos = [secrets.choice(range(-1250, win.get_width() + 1250)), secrets.choice(range(-1250, win.get_height() + 1250))]
+            self.plants.append(pos)
+            
+class SpriteSheet:
+    def __init__(self, sheet, size, colorkey = [0, 0, 0]):
+        self.spritesheet = sheet
+        self.colorkey = colorkey
+        self.size = [self.spritesheet.get_width()/size[0], self.spritesheet.get_height()/size[1]]
+        self.sheet = []
+        for i in range(size[1]):
+            self.sheet.append([])
+            for j in range(size[0]):
+                image = pygame.Surface((self.size))
+                image.set_colorkey(self.colorkey)
+                image.blit(self.spritesheet, (0, 0), [j*self.size[0], i*self.size[1], self.size[0], self.size[1]])
+                self.sheet[i].append(image)
+    def get(self, loc):
+        return self.sheet[loc[1]][loc[0]]
+    
+class DeathParticleManger:
+    def __init__(self, size, positions, colors):
+        self.textures = [pygame.Surface(size) for _ in colors]
+        [texture.fill(colors[count]) for count, texture in enumerate(self.textures)]
+        self.alpha = 255
+        self.positions = positions
+        self.range = (-3, -2, -1, 0, 1, 2, 3)
+    def update(self):
+        if self.alpha > 0:
+            self.alpha -= 6.5
+        for count, texture in enumerate(self.textures):
+            texture.set_alpha(self.alpha)
+        
+            flutter = secrets.choice(self.range)    
+            self.positions[count][0] += flutter 
+            
+            win.blit(texture, [self.positions[count][0] + cam_offset[0], self.positions[count][1] + cam_offset[1]])
+            
+            self.positions[count][0] -= flutter
+            self.positions[count][1] -= 1.5
             
 plant_manager = PlantManager()
 
 carnivore_image = scale_image(pygame.image.load("carnivore.png").convert())
+swap_color(carnivore_image, [0, 0, 0], [1, 1, 1])
 carnivore_image.set_colorkey([255, 255, 255])
 
 carnivore_images = [pygame.transform.rotate(carnivore_image, i) for i in range(0, 361)]
 carnivore_masks = [pygame.mask.from_surface(carnivore_images[i]) for i in range(0, 361)]
 
 herbivore_image = scale_image(pygame.image.load("herbivore.png").convert(), 4)
+swap_color(herbivore_image, [0, 0, 0], [1, 1, 1])
 herbivore_image.set_colorkey([255, 255, 255])
 
 herbivore_images = [pygame.transform.rotate(herbivore_image, i) for i in range(0, 361)]
@@ -71,6 +131,7 @@ class Carnivore:
         self.vel = [0, 0]
         self.speed = traits[3]
         self.move_angle = secrets.choice(range(-180, 180))
+        self.shown_angle = self.move_angle
         self.r_angle = secrets.choice(range(-180, 180))
         self.move_delay = time.time()
 
@@ -96,7 +157,14 @@ class Carnivore:
         self.difference = 0
 
         self.rest_duration = 2.5
-        self.breed_interval = 2
+        self.breed_interval = 3.5
+        
+        self.image = scale_image(carnivore_image, self.traits[1]/10)
+        swap_color(self.image, [127, 15, 15], self.traits[0])
+        self.final_image = self.image
+        self.mask = pygame.mask.from_surface(self.image)
+        self.rect = self.image.get_rect(topleft=(self.x, self.y))
+        self.outline = self.mask.outline()
         
     def new(self):
         global carnivores
@@ -215,8 +283,8 @@ class Carnivore:
                 if self.r_angle < 0:
                     self.r_angle = 360 + self.r_angle
                     
-                if carnivore_masks[round(self.r_angle)].overlap(herbivore_masks[round(creatures[self.prey_target].move_angle)], ((creatures[self.prey_target].x - self.x), (creatures[self.prey_target].y - self.y))):
-                    creatures.pop(self.prey_target)
+                if self.mask.overlap(creatures[self.prey_target].mask, ((creatures[self.prey_target].x - self.x), (creatures[self.prey_target].y - self.y))):
+                    creatures[self.prey_target].vital_status = 0
                     deaths += 1
                     self.hunger = 1 
                     self.prey_target = None
@@ -230,8 +298,8 @@ class Carnivore:
                         if self.r_angle < 0:
                             self.r_angle = 360 + self.r_angle
                             
-                        if carnivore_masks[round(self.r_angle)].overlap(herbivore_masks[round(creature.move_angle)], ((creature.x - self.x), (creature.y - self.y))):
-                            creatures.remove(creature)
+                        if self.mask.overlap(creature.mask, ((creature.x - self.x), (creature.y - self.y))):
+                            creature.vital_status = 0
                             deaths += 1
                             self.hunger = 1 
                             self.prey_target = None
@@ -251,7 +319,14 @@ class Carnivore:
         if self.r_angle < 0:
             self.r_angle = 360 + self.r_angle 
             
-        win.blit(carnivore_images[round(self.r_angle)], (self.x + cam_offset[0], self.y + cam_offset[1]))
+        if self.shown_angle < self.r_angle:
+            self.shown_angle += 3.5
+        if self.shown_angle > self.r_angle:
+            self.shown_angle -= 3.5
+            
+        self.final_image = pygame.transform.rotate(self.image, self.shown_angle)
+        win.blit(self.final_image, (self.x + cam_offset[0], self.y + cam_offset[1]))
+        self.mask = pygame.mask.from_surface(self.final_image)
         
         self.rect.x = self.x - self.traits[1]
         self.rect.y = self.y - self.traits[1]
@@ -265,6 +340,20 @@ class Carnivore:
 
         if self.hunger > self.food_requirement:
             self.vital_status = 0
+            particle_sheet = SpriteSheet(self.final_image, [self.final_image.get_width()//4, self.final_image.get_height()//4], [255, 255, 255])
+
+            colors = []
+            positions = []
+            for j, sheet in enumerate(particle_sheet.sheet):
+                    for i, surf in enumerate(sheet):
+                        colors.append(surf.get_at([0, 0]))
+                        if not (colors[-1].r == 0 and colors[-1].g == 0 and colors[-1].b == 0):
+                            positions.append([self.x + (i*4), self.y + (j*4)])
+                        else:
+                            colors.pop()
+                        
+            death_anims.append(DeathParticleManger((4, 4), positions, colors))
+            
             if self.pack_leader == None:
                 count = []
                 sizes = []
@@ -388,8 +477,19 @@ class Carnivore:
 
             self.x -= self.vel[0]*2
             self.y -= self.vel[1]*2
+            
+start_traits = [[125, 0, 0], 10, 18, 6]
 
-carnivores = [Carnivore(secrets.choice(range(win.get_width() - 300, win.get_width() + 300)), secrets.choice(range(win.get_height() - 300, win.get_height() + 300)), secrets.randbelow(3), [[125, 0, 0], 10, 17.5, 5.5], 0) for i in range(10)]
+carnivores = [Carnivore(secrets.choice(range(win.get_width() - 300, win.get_width() + 300)), secrets.choice(range(win.get_height() - 300, win.get_height() + 300)), secrets.randbelow(3), start_traits, 0) for i in range(10)]
 carnivores[0].pack = [carnivore.__hash__() for carnivore in carnivores[1:]]
 for carnivore in carnivores[1:]:
     carnivore.pack_leader = carnivores[0].__hash__()
+    
+start_traits[0] = [0, 255, 0]
+    
+carnivores_2 = [Carnivore(secrets.choice(range(win.get_width() - 800, win.get_width() + 800)), secrets.choice(range(win.get_height() - 800, win.get_height() + 800)), secrets.randbelow(3), start_traits, 0) for i in range(10)]
+carnivores_2[0].pack = [carnivore.__hash__() for carnivore in carnivores_2[1:]]
+for carnivore in carnivores_2[1:]:
+    carnivore.pack_leader = carnivores_2[0].__hash__()
+
+carnivores = carnivores + carnivores_2
