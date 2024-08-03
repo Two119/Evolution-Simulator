@@ -36,16 +36,28 @@ class Button:
         self.rect = self.textures[self.current].get_rect(topleft=self.pos)
 
 start_button_sheet = scale_image(pygame.image.load("start_buttons.png").convert(), 1.5)
+stats_button_sheet = scale_image(pygame.image.load("stats_buttons.png").convert(), 1.5)
 exit_button_sheet = scale_image(pygame.image.load("exit_buttons.png").convert(), 1.5)
 
 start_button_spritesheet = SpriteSheet(start_button_sheet, [2, 1], [255, 255, 255]).sheet[0]
+stats_button_spritesheet = SpriteSheet(stats_button_sheet, [2, 1], [255, 255, 255]).sheet[0]
 exit_button_spritesheet = SpriteSheet(exit_button_sheet, [2, 1], [255, 255, 255]).sheet[0]
 
 def set_state(x):
     global game_state
     game_state = 1
+    
+    
+global show_stats
+show_stats = False
+
+def show_stats(x):
+    global show_stats
+    show_stats = not show_stats
+    pygame.mouse.set_pos((pygame.mouse.get_pos()[0] + 100, pygame.mouse.get_pos()[1] + 100))
 
 start_button = Button(((win.get_width()/2) - (start_button_sheet.get_width()/4), (win.get_height()/2) - (start_button_sheet.get_height()/4)), start_button_spritesheet, [set_state, 1])
+stats_button = Button((15, 15), stats_button_spritesheet, [show_stats, 1])
 exit_button = Button(((win.get_width()/2) - (exit_button_sheet.get_width()/4), (win.get_height()/2) - (exit_button_sheet.get_height()/4) + 96), exit_button_spritesheet, [lambda x: exit(), 1])
 
 class Herbivore:
@@ -322,7 +334,9 @@ global game_state
 game_state = 0
 
 bg = pygame.image.load("bg.png").convert()
-
+stats_font = pygame.font.Font("yoster.ttf", 24)
+stats_table = scale_image(pygame.image.load("stats.png").convert(), 2)
+carnivore_deaths = 0
 while True:
     win.fill((0, 0, 255))
     clock.tick(60)
@@ -340,7 +354,6 @@ while True:
         start_button.update()
         exit_button.update()
     else:
-        
         if pygame.key.get_pressed()[pygame.K_ESCAPE]:
             game_state = 0
             
@@ -370,6 +383,8 @@ while True:
             death_anims.clear()
             
             deaths = 0
+            
+            carnivore_deaths = 0
             
             continue
         
@@ -416,6 +431,7 @@ while True:
         for count, carnivore in enumerate(carnivores):
             if carnivore.vital_status == 0:
                 carnivores.pop(count)
+                carnivore_deaths += 1
         
         for anim in death_anims:
             anim.update()
@@ -423,23 +439,39 @@ while True:
                 death_anims.remove(anim)
         
         #pygame.draw.rect(win, [125, 125, 125], pygame.Rect(0, 0, 450, 225))
-        pop_text = font.render("Population: H - " + str(len(creatures)) + ", C - " + str(len(carnivores)), False, [0, 0, 0], [125, 125, 125])
+        
 
-        avg_speed = sum([(creature.traits[-1]) for creature in creatures])/len(creatures)
-        avg_c_speed = sum([(carnivore.traits[-1]) for carnivore in carnivores])/len(carnivores)
-        speed_text = font.render("Speed: H - " + str(round(avg_speed, 3)) + ", C - " + str(round(avg_c_speed, 3)), False, [0, 0, 0], [125, 125, 125])
+        stats_button.update()
         
-        avg_size = sum([(creature.traits[1]) for creature in creatures])/len(creatures)
-        avg_c_size = sum([(carnivore.traits[1]) for carnivore in carnivores])/len(carnivores)
-        size_text = font.render("Radius: H - " + str(round(avg_size, 3)) + ", C - " + str(round(avg_c_size, 3)), False, [0, 0, 0], [125, 125, 125])
-        
-        food_req = sum([(creature.traits[-2]) for creature in creatures])/len(creatures)
-        food_text = font.render("Food Req: " + str(round(food_req, 3)), False, [0, 0, 0], [125, 125, 125])
-        
-        gen_text = font.render("Gens alive: " + str(min([creature.gen for creature in creatures])) + ", " + str(max([creature.gen for creature in creatures])), False, [0, 0, 0], [125, 125, 125])
-    
-        d_text = font.render("Deaths: " + str(deaths), False, [0, 0, 0], [125, 125, 125])
-
+        if show_stats:
+            
+            win.blit(stats_table, [15, 111])
+            
+            h_pop_text = stats_font.render(str(len(creatures)), False, [127, 127, 127], [0, 0, 0])
+            c_pop_text = stats_font.render(str(len(carnivores)), False, [127, 127, 127], [0, 0, 0])
+            win.blit(h_pop_text, [247, 160])
+            win.blit(c_pop_text, [464, 160])
+            
+            h_size_text = stats_font.render(str(round(sum([c.traits[1] for c in creatures])/len(creatures), 2)), False, [127, 127, 127], [0, 0, 0])
+            c_size_text = stats_font.render(str(round(sum([c.traits[1] for c in carnivores])/len(carnivores), 2)), False, [127, 127, 127], [0, 0, 0])
+            win.blit(h_size_text, [247, 205])
+            win.blit(c_size_text, [464, 205])
+            
+            h_speed_text = stats_font.render(str(round(sum([c.speed for c in creatures])/len(creatures), 2)), False, [127, 127, 127], [0, 0, 0])
+            c_speed_text = stats_font.render(str(round(sum([c.speed for c in carnivores])/len(carnivores), 2)), False, [127, 127, 127], [0, 0, 0])
+            win.blit(h_speed_text, [247, 250])
+            win.blit(c_speed_text, [464, 250])
+            
+            h_req_text = stats_font.render(str(round(sum([c.traits[-2] for c in creatures])/len(creatures), 2)), False, [127, 127, 127], [0, 0, 0])
+            c_req_text = stats_font.render(str(round(sum([c.traits[-2] for c in carnivores])/len(carnivores), 2)), False, [127, 127, 127], [0, 0, 0])
+            win.blit(h_req_text, [247, 295])
+            win.blit(c_req_text, [464, 295])
+            
+            h_deaths_text = stats_font.render(str(deaths), False, [127, 127, 127], [0, 0, 0])
+            c_deaths_text = stats_font.render(str(carnivore_deaths), False, [127, 127, 127], [0, 0, 0])
+            win.blit(h_deaths_text, [252, 335])
+            win.blit(c_deaths_text, [464, 335])
+            
         """win.blit(pop_text, (10, 10))
         win.blit(size_text, (10, 50))
         win.blit(speed_text, (10, 90))
