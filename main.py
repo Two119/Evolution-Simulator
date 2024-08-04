@@ -336,6 +336,9 @@ game_state = 0
 bg = pygame.image.load("bg.png").convert()
 stats_font = pygame.font.Font("yoster.ttf", 24)
 stats_table = scale_image(pygame.image.load("stats.png").convert(), 2)
+title = scale_image(pygame.image.load("title.png").convert(), 2)
+title.set_colorkey([255, 255, 255])
+swap_color(title, [0, 0, 0], [254, 254, 254])
 carnivore_deaths = 0
 while True:
     win.fill((0, 0, 255))
@@ -351,6 +354,7 @@ while True:
 
     if game_state == 0:
         win.blit(bg, (0, 0))
+        win.blit(title, ((win.get_width() - title.get_width())/2, (win.get_height() - title.get_height())/2 - 128))
         start_button.update()
         exit_button.update()
     else:
