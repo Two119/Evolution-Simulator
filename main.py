@@ -329,7 +329,7 @@ pygame.init()
 creatures = [Herbivore(secrets.choice(range(-1250, win.get_width() + 1250)), secrets.choice(range(-1250, win.get_height() + 1250)), secrets.randbelow(3), [[0, 0, 125], 10, 15, 5], 0) for i in range(100)]
 
 font = pygame.font.SysFont("Arial", 32)
-clock = pygame.Clock()
+clock = pygame.time.Clock()
 global game_state
 game_state = 0
 
